@@ -1,35 +1,58 @@
-import pandas as pd
-from sqlalchemy import Column, Integer, String, create_engine
-from sqlalchemy.ext.declarative import declarative_base
+import glob
+import os
 
-# Map which table in database will be related to each class
+from numpy import genfromtxt
+from sqlalchemy import Column, Integer, String
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
 Base = declarative_base()
 
+
 class counters(Base):
-    __tablename__ = 'user'
+    __tablename__ = 'counters'
 
     id = Column(Integer, primary_key=True)
-    hero_name = Column(String(250),nullable=False)
-    counters = Column(String(250),nullable=False)
+    hero = Column(String(250), nullable=False)
+    counter = Column(String(250), nullable=False)
 
 
+# Create the database
 engine = create_engine('sqlite:///database.db')
-
 Base.metadata.create_all(engine)
 
+# create the session
+session = sessionmaker()
+session.configure(bind=engine)
+s = session()
 
 
-# Read file into dataframe
-csv_data = pd.read_csv('data.csv')
-
-# Convert dataframe to list and store in same variable
-
+def Load_Data(file_name):
+    data = genfromtxt(file_name, delimiter=',', skip_header=1, dtype=None, encoding=None)
+    return data.tolist()
 
 
-# Use table_definition function to define table structure
-# Loop through list of lists, each list in create_bom_table.xls_data is a row
-for row in csv_data:
-# Each element in the list is an attribute for the table class
-# Iterating through rows and inserting into table
+try:
+    current_path = os.getcwd()
+    # Get list of files in folder
+    files = glob.glob(os.path.join(current_path, "*.csv"))
 
+    # Loop through all files in list
+    for file_path in files:
+        file_name = file_path.split('/')[-1]
+        data = Load_Data(file_name)
 
+        for i in data:
+            record = counters(**{
+                'hero': i[0],
+                'counter': i[1]
+            })
+            s.add(record)
+    s.commit()
+
+except:
+
+    s.rollback()  # Rollback the changes on error
+finally:
+    s.close()  # Close the connection
